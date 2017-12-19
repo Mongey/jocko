@@ -30,6 +30,7 @@ type CommitLog struct {
 	mu             sync.RWMutex
 	segments       []*Segment
 	vActiveSegment atomic.Value
+	empty          bool
 }
 
 type Options struct {
@@ -52,6 +53,7 @@ func New(opts Options) (*CommitLog, error) {
 		Options: opts,
 		name:    filepath.Base(path),
 		cleaner: NewDeleteCleaner(opts.MaxLogBytes),
+		empty:   true,
 	}
 
 	if err := l.init(); err != nil {
@@ -110,6 +112,10 @@ func (l *CommitLog) open() error {
 	return nil
 }
 
+func (l *CommitLog) isEmpty() bool {
+	return l.empty
+}
+
 func (l *CommitLog) Append(b []byte) (offset int64, err error) {
 	ms := MessageSet(b)
 	if l.checkSplit() {
@@ -130,6 +136,7 @@ func (l *CommitLog) Append(b []byte) (offset int64, err error) {
 	if err := l.activeSegment().Index.WriteEntry(e); err != nil {
 		return offset, err
 	}
+	l.empty = false
 	return offset, nil
 }
 
